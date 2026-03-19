@@ -250,7 +250,7 @@ function DuplicateDisplay({ event }: { event: LiveEvent }) {
     : '—';
 
   return (
-    <div className="h-full bg-amber-500 flex flex-col items-center justify-center p-6 text-center">
+    <div className="h-full bg-red-600 flex flex-col items-center justify-center p-6 text-center">
       <h1 className="text-6xl sm:text-8xl font-black mb-4 tracking-tight text-white drop-shadow-lg">СТОП</h1>
 
       <div className="bg-black/25 backdrop-blur-sm rounded-2xl px-6 py-4 max-w-sm w-full">
