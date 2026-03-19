@@ -28,8 +28,8 @@ export default function CameraScreen({ deviceId, onBack }: Props) {
     return scanner.start(
       { facingMode: facing },
       {
-        fps: 15,
-        // No qrbox — scan the ENTIRE frame. Higher fps = more chances to catch glare-free frame.
+        fps: 10,
+        // No qrbox — scan the ENTIRE frame. fps:10 optimal for battery life on 8h shift.
         aspectRatio: window.innerHeight / window.innerWidth,
       },
         async (decodedText) => {
