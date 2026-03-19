@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { scannerFetch } from '../lib/api';
+import { API_URL } from '../lib/config';
 
 interface LiveEvent {
   deviceId: string;
@@ -25,41 +25,71 @@ export default function VolunteerScreen({ onBack }: Props) {
   );
   const [connected, setConnected] = useState(false);
   const [event, setEvent] = useState<LiveEvent | null>(null);
-  const [lastEventTime, setLastEventTime] = useState<string | null>(null);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [sseStatus, setSseStatus] = useState<'connecting' | 'open' | 'error'>('connecting');
+  const esRef = useRef<EventSource | null>(null);
 
-  const startPolling = (deviceId: string) => {
+  const [connectError, setConnectError] = useState('');
+
+  const connect = async (deviceId: string) => {
+    setConnectError('');
+
+    // Validate token before opening SSE (EventSource can't detect 401)
+    const token = localStorage.getItem('scanner_token') || '';
+    try {
+      const checkRes = await fetch(`${API_URL}/api/scan/cache/status`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (checkRes.status === 401) {
+        localStorage.removeItem('scanner_token');
+        window.dispatchEvent(new Event('scanner-auth-expired'));
+        return;
+      }
+    } catch {
+      setConnectError('Нет связи с сервером');
+      return;
+    }
+
     localStorage.setItem('volunteer_target_device', deviceId);
     setConnected(true);
+    setSseStatus('connecting');
 
-    const poll = async () => {
-      try {
-        const res = await scannerFetch(`/api/scan/live/${deviceId}`);
-        if (!res.ok) return;
-        const json = await res.json();
-        const data = json.data as LiveEvent | null;
-        if (data && data.scannedAt !== lastEventTime) {
-          setEvent(data);
-          setLastEventTime(data.scannedAt);
-        }
-      } catch { /* offline */ }
+    const url = `${API_URL}/api/scan/live/stream/${deviceId}?token=${encodeURIComponent(token)}`;
+
+    const es = new EventSource(url);
+    esRef.current = es;
+
+    es.onopen = () => {
+      setSseStatus('open');
     };
 
-    poll();
-    pollRef.current = setInterval(poll, 1000);
+    es.onmessage = (e) => {
+      try {
+        const data = JSON.parse(e.data) as LiveEvent;
+        setEvent(data);
+      } catch { /* ignore parse errors */ }
+    };
+
+    es.onerror = () => {
+      setSseStatus('error');
+      // EventSource auto-reconnects — status will change back to 'open'
+    };
   };
 
-  // Track lastEventTime with ref to avoid stale closure
-  const lastEventTimeRef = useRef(lastEventTime);
-  lastEventTimeRef.current = lastEventTime;
+  const disconnect = () => {
+    esRef.current?.close();
+    esRef.current = null;
+    setConnected(false);
+    setEvent(null);
+    setSseStatus('connecting');
+  };
 
   useEffect(() => {
     return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
+      esRef.current?.close();
     };
   }, []);
 
-  // If not connected — show device ID input
+  // ─── Connection Screen ────────────────────────────────
   if (!connected) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-6">
@@ -85,10 +115,14 @@ export default function VolunteerScreen({ onBack }: Props) {
             autoFocus
           />
 
+          {connectError && (
+            <div className="bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 text-center">
+              <p className="text-red-400 text-sm">{connectError}</p>
+            </div>
+          )}
+
           <button
-            onClick={() => {
-              if (targetDevice.trim()) startPolling(targetDevice.trim());
-            }}
+            onClick={() => { if (targetDevice.trim()) connect(targetDevice.trim()); }}
             disabled={!targetDevice.trim()}
             className="w-full py-5 bg-purple-500 hover:bg-purple-600 active:bg-purple-700 disabled:bg-gray-800 disabled:text-gray-600 rounded-2xl text-xl font-bold transition-colors"
           >
@@ -106,31 +140,32 @@ export default function VolunteerScreen({ onBack }: Props) {
     );
   }
 
-  // Connected — show live feed
+  // ─── Live Feed Screen ─────────────────────────────────
   return (
     <div className="fixed inset-0 bg-gray-950 flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800/50">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800/50 shrink-0 z-10">
         <button
-          onClick={() => {
-            if (pollRef.current) clearInterval(pollRef.current);
-            setConnected(false);
-            setEvent(null);
-          }}
-          className="text-sm text-gray-500 hover:text-gray-300"
+          onClick={disconnect}
+          className="text-sm text-gray-500 hover:text-gray-300 transition-colors"
         >
           Отключиться
         </button>
         <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-purple-500 pulse-ring" />
+          <div className={`w-2 h-2 rounded-full ${
+            sseStatus === 'open' ? 'bg-green-500' :
+            sseStatus === 'error' ? 'bg-red-500' : 'bg-yellow-500 animate-pulse'
+          }`} />
           <span className="text-xs font-mono text-gray-400">{targetDevice}</span>
         </div>
       </div>
 
-      {/* Result area */}
-      <div className="flex-1 flex items-center justify-center">
+      {/* Content */}
+      <div className="flex-1">
         {!event ? (
-          <WaitingState />
+          <div className="h-full flex items-center justify-center">
+            <WaitingState />
+          </div>
         ) : event.type === 'valid' ? (
           <ValidDisplay event={event} />
         ) : event.type === 'duplicate' ? (
@@ -143,50 +178,49 @@ export default function VolunteerScreen({ onBack }: Props) {
   );
 }
 
-// ─── Display States ─────────────────────────────────────
+// ─── Display Components ─────────────────────────────────
 
 function WaitingState() {
   return (
     <div className="text-center p-8">
-      <div className="w-20 h-20 rounded-full border-2 border-gray-800 flex items-center justify-center mx-auto mb-6">
-        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#4B5563" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <div className="w-24 h-24 rounded-full border-2 border-gray-800 flex items-center justify-center mx-auto mb-6">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
           <path d="M3 7V5a2 2 0 0 1 2-2h2" />
           <path d="M17 3h2a2 2 0 0 1 2 2v2" />
           <path d="M21 17v2a2 2 0 0 1-2 2h-2" />
           <path d="M7 21H5a2 2 0 0 1-2-2v-2" />
         </svg>
       </div>
-      <p className="text-gray-600 text-lg">Ожидание сканирования...</p>
+      <p className="text-gray-600 text-xl font-medium">Ожидание сканирования</p>
+      <p className="text-gray-700 text-sm mt-2">Результат появится мгновенно</p>
     </div>
   );
 }
 
 function ValidDisplay({ event }: { event: LiveEvent }) {
   return (
-    <div className="fixed inset-0 bg-green-500 flex flex-col items-center justify-center p-6 text-center">
-      {/* Bracelet color — HUGE, most important for volunteer */}
+    <div className="h-full bg-green-500 flex flex-col items-center justify-center p-6 text-center">
+      {/* Bracelet — biggest element, the main info for volunteer */}
       {event.braceletColor && (
         <div
-          className="w-32 h-32 rounded-full border-4 border-white/30 mb-6 shadow-lg"
+          className="w-36 h-36 rounded-full border-[6px] border-white/30 mb-5 shadow-2xl"
           style={{ backgroundColor: event.braceletColor }}
         />
       )}
 
-      <h1 className="text-4xl font-black mb-2 tracking-tight">ПРОХОДИ</h1>
-
       {event.braceletLabel && (
-        <p className="text-2xl font-bold uppercase tracking-widest mb-4 text-white/90">
-          {event.braceletLabel} браслет
+        <p className="text-3xl font-black uppercase tracking-widest mb-2 text-white">
+          {event.braceletLabel}
         </p>
       )}
 
-      <p className="text-xl font-semibold text-white/80 mb-1">
-        {event.customerName}
-      </p>
-      <p className="text-base text-white/60">
-        {event.ticketName}
-        {event.optionName ? ` \u2022 ${event.optionName}` : ''}
-      </p>
+      <div className="bg-white/15 rounded-2xl px-6 py-4 mt-2 max-w-sm w-full">
+        <p className="text-xl font-bold text-white mb-1">{event.customerName}</p>
+        <p className="text-base text-white/70">
+          {event.ticketName}
+          {event.optionName ? ` \u2022 ${event.optionName}` : ''}
+        </p>
+      </div>
 
       {event.isInvitation && (
         <div className="mt-4 bg-white/20 rounded-full px-5 py-2">
@@ -207,31 +241,30 @@ function DuplicateDisplay({ event }: { event: LiveEvent }) {
     : '—';
 
   return (
-    <div className="fixed inset-0 bg-amber-500 flex flex-col items-center justify-center p-6 text-center">
-      <div className="w-24 h-24 rounded-full bg-white/20 flex items-center justify-center mb-6">
-        <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+    <div className="h-full bg-amber-500 flex flex-col items-center justify-center p-6 text-center">
+      <div className="w-28 h-28 rounded-full bg-white/20 flex items-center justify-center mb-6">
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
           <line x1="12" y1="9" x2="12" y2="13" />
           <line x1="12" y1="17" x2="12.01" y2="17" />
         </svg>
       </div>
-      <h1 className="text-4xl font-black mb-3 tracking-tight">НЕ ПУСКАТЬ</h1>
-      <p className="text-xl text-white/80 mb-1">{event.customerName}</p>
-      <p className="text-base text-white/60">Вход в {time}</p>
+      <h1 className="text-5xl font-black mb-3 tracking-tight">СТОП</h1>
+      <p className="text-2xl text-white/80 mb-1">{event.customerName}</p>
+      <p className="text-lg text-white/60">Уже прошёл в {time}</p>
     </div>
   );
 }
 
 function InvalidDisplay() {
   return (
-    <div className="fixed inset-0 bg-red-500 flex flex-col items-center justify-center p-6 text-center">
-      <div className="w-24 h-24 rounded-full bg-white/20 flex items-center justify-center mb-6">
-        <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+    <div className="h-full bg-red-500 flex flex-col items-center justify-center p-6 text-center">
+      <div className="w-28 h-28 rounded-full bg-white/20 flex items-center justify-center mb-6">
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
           <line x1="18" y1="6" x2="6" y2="18" />
           <line x1="6" y1="6" x2="18" y2="18" />
         </svg>
       </div>
-      <h1 className="text-4xl font-black tracking-tight">НЕ ПУСКАТЬ</h1>
+      <h1 className="text-5xl font-black tracking-tight">СТОП</h1>
     </div>
   );
 }
