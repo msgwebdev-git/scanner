@@ -29,40 +29,33 @@ export default function VolunteerScreen({ onBack }: Props) {
   const esRef = useRef<EventSource | null>(null);
 
   const [connectError, setConnectError] = useState('');
+  const errorCountRef = useRef(0);
 
-  const connect = async (deviceId: string) => {
+  const connect = (deviceId: string) => {
     setConnectError('');
 
-    // Validate token before opening SSE (EventSource can't detect 401)
-    const token = localStorage.getItem('scanner_token') || '';
-    try {
-      const checkRes = await fetch(`${API_URL}/api/scan/cache/status`, {
-        headers: { 'Authorization': `Bearer ${token}` },
-      });
-      if (checkRes.status === 401) {
-        localStorage.removeItem('scanner_token');
-        window.dispatchEvent(new Event('scanner-auth-expired'));
-        return;
-      }
-    } catch {
-      setConnectError('Нет связи с сервером');
+    const token = localStorage.getItem('scanner_token');
+    if (!token) {
+      window.dispatchEvent(new Event('scanner-auth-expired'));
       return;
     }
 
     localStorage.setItem('volunteer_target_device', deviceId);
     setConnected(true);
     setSseStatus('connecting');
+    errorCountRef.current = 0;
 
     const url = `${API_URL}/api/scan/live/stream/${deviceId}?token=${encodeURIComponent(token)}`;
-
     const es = new EventSource(url);
     esRef.current = es;
 
     es.onopen = () => {
       setSseStatus('open');
+      errorCountRef.current = 0;
     };
 
     es.onmessage = (e) => {
+      errorCountRef.current = 0;
       try {
         const data = JSON.parse(e.data) as LiveEvent;
         setEvent(data);
@@ -70,8 +63,15 @@ export default function VolunteerScreen({ onBack }: Props) {
     };
 
     es.onerror = () => {
+      errorCountRef.current++;
       setSseStatus('error');
-      // EventSource auto-reconnects — status will change back to 'open'
+
+      // After 5 consecutive errors — likely auth failure, disconnect
+      if (errorCountRef.current >= 5) {
+        es.close();
+        setConnected(false);
+        setConnectError('Не удалось подключиться. Проверьте PIN и попробуйте снова.');
+      }
     };
   };
 
