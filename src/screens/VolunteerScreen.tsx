@@ -28,6 +28,7 @@ export default function VolunteerScreen({ onBack }: Props) {
   const [sseStatus, setSseStatus] = useState<'connecting' | 'open' | 'error'>('connecting');
   const esRef = useRef<EventSource | null>(null);
   const clearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastSeenRef = useRef<string | null>(null);
 
   const [connectError, setConnectError] = useState('');
   const errorCountRef = useRef(0);
@@ -59,6 +60,11 @@ export default function VolunteerScreen({ onBack }: Props) {
       errorCountRef.current = 0;
       try {
         const data = JSON.parse(e.data) as LiveEvent;
+
+        // Ignore duplicate events (SSE reconnect resends last event)
+        if (data.scannedAt === lastSeenRef.current) return;
+        lastSeenRef.current = data.scannedAt;
+
         setEvent(data);
 
         // Auto-clear after 8 seconds — back to "waiting"
