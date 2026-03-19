@@ -60,10 +60,29 @@ export function getDB(): Promise<IDBPDatabase<ScannerDB>> {
 export async function upsertTickets(tickets: ScannerDB['tickets']['value'][]): Promise<void> {
   const db = await getDB();
   const tx = db.transaction('tickets', 'readwrite');
-  await Promise.all([
-    ...tickets.map((t) => tx.store.put(t)),
-    tx.done,
-  ]);
+
+  // Preserve local check-ins not yet synced
+  const allExisting = await tx.store.getAll();
+  const localCheckins = new Map<string, { checkedInAt: string; checkedInBy: string | null }>();
+  for (const t of allExisting) {
+    if (t.checkedInAt) {
+      localCheckins.set(t.qrData, { checkedInAt: t.checkedInAt, checkedInBy: t.checkedInBy });
+    }
+  }
+
+  // Clear and re-populate (removes deleted/refunded tickets)
+  await tx.store.clear();
+  for (const t of tickets) {
+    // Restore local check-in if server doesn't know about it yet
+    const local = localCheckins.get(t.qrData);
+    if (local && !t.checkedInAt) {
+      t.checkedInAt = local.checkedInAt;
+      t.checkedInBy = local.checkedInBy;
+    }
+    tx.store.put(t);
+  }
+
+  await tx.done;
 }
 
 export async function getTicket(qrData: string): Promise<ScannerDB['tickets']['value'] | undefined> {
