@@ -7,12 +7,12 @@ import {
 } from '../lib/scanner-db';
 
 interface Props {
-  deviceName: string;
+  deviceId: string;
   onScan: () => void;
   onLogout: () => void;
 }
 
-export default function DashboardScreen({ deviceName, onScan, onLogout }: Props) {
+export default function DashboardScreen({ deviceId, onScan, onLogout }: Props) {
   const [ticketCount, setTicketCount] = useState(0);
   const [checkedInCount, setCheckedInCount] = useState(0);
   const [pendingCount, setPendingCount] = useState(0);
@@ -57,7 +57,7 @@ export default function DashboardScreen({ deviceName, onScan, onLogout }: Props)
     <div className="flex-1 flex flex-col p-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-bold truncate mr-4">{deviceName}</h1>
+        <h1 className="text-xl font-bold truncate mr-4">{deviceId}</h1>
         <button
           onClick={onLogout}
           className="text-sm text-gray-400 hover:text-white shrink-0 py-2 px-3 rounded-lg bg-gray-800"

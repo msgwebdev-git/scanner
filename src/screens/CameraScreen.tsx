@@ -4,18 +4,18 @@ import { getTicket, localCheckIn, type Ticket } from '../lib/scanner-db';
 import type { ScanResult } from '../App';
 
 interface Props {
-  deviceName: string;
+  deviceId: string;
   onBack: () => void;
 }
 
 const RESULT_DURATION_MS = 3000;
 
-export default function CameraScreen({ deviceName, onBack }: Props) {
+export default function CameraScreen({ deviceId, onBack }: Props) {
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
   const isProcessingRef = useRef(false);
-  const deviceNameRef = useRef(deviceName);
-  deviceNameRef.current = deviceName;
+  const deviceIdRef = useRef(deviceId);
+  deviceIdRef.current = deviceId;
 
   const [result, setResult] = useState<ScanResult | null>(null);
 
@@ -45,7 +45,7 @@ export default function CameraScreen({ deviceName, onBack }: Props) {
             } else if (ticket.checkedInAt) {
               scanResult = { type: 'duplicate', ticket };
             } else {
-              await localCheckIn(decodedText, deviceNameRef.current);
+              await localCheckIn(decodedText, deviceIdRef.current);
               const updated = await getTicket(decodedText);
               scanResult = { type: 'valid', ticket: updated || ticket };
             }

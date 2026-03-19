@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import PinScreen from './screens/PinScreen';
 import DashboardScreen from './screens/DashboardScreen';
 import CameraScreen from './screens/CameraScreen';
+import { getDeviceId } from './lib/device-id';
 
 type Screen = 'pin' | 'dashboard' | 'camera';
 
@@ -16,22 +17,16 @@ export default function App() {
   const [screen, setScreen] = useState<Screen>(() =>
     localStorage.getItem('scanner_token') ? 'dashboard' : 'pin'
   );
-  const [deviceName, setDeviceName] = useState(() =>
-    localStorage.getItem('scanner_device') || ''
-  );
+
+  const deviceId = getDeviceId();
 
   useEffect(() => {
-    const handler = () => {
-      setScreen('pin');
-      setDeviceName('');
-    };
+    const handler = () => setScreen('pin');
     window.addEventListener('scanner-auth-expired', handler);
     return () => window.removeEventListener('scanner-auth-expired', handler);
   }, []);
 
-  const handleAuth = useCallback((name: string) => {
-    setDeviceName(name);
-    localStorage.setItem('scanner_device', name);
+  const handleAuth = useCallback(() => {
     setScreen('dashboard');
   }, []);
 
@@ -40,18 +35,17 @@ export default function App() {
       {screen === 'pin' && <PinScreen onAuth={handleAuth} />}
       {screen === 'dashboard' && (
         <DashboardScreen
-          deviceName={deviceName}
+          deviceId={deviceId}
           onScan={() => setScreen('camera')}
           onLogout={() => {
             localStorage.removeItem('scanner_token');
-            localStorage.removeItem('scanner_device');
             setScreen('pin');
           }}
         />
       )}
       {screen === 'camera' && (
         <CameraScreen
-          deviceName={deviceName}
+          deviceId={deviceId}
           onBack={() => setScreen('dashboard')}
         />
       )}

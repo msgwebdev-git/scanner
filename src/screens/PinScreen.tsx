@@ -1,20 +1,21 @@
 import { useState } from 'react';
 import { scannerFetch } from '../lib/api';
+import { getDeviceId } from '../lib/device-id';
 
 interface Props {
-  onAuth: (deviceName: string) => void;
+  onAuth: () => void;
 }
 
 export default function PinScreen({ onAuth }: Props) {
   const [pin, setPin] = useState('');
-  const [deviceName, setDeviceName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const deviceId = getDeviceId();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!pin || !deviceName) {
-      setError('Введите PIN и название устройства');
+    if (!pin) {
+      setError('Введите PIN');
       return;
     }
 
@@ -24,7 +25,7 @@ export default function PinScreen({ onAuth }: Props) {
     try {
       const res = await scannerFetch('/api/scan/auth', {
         method: 'POST',
-        body: JSON.stringify({ pin, deviceName }),
+        body: JSON.stringify({ pin, deviceId }),
       });
 
       if (!res.ok) {
@@ -36,7 +37,7 @@ export default function PinScreen({ onAuth }: Props) {
 
       const json = await res.json();
       localStorage.setItem('scanner_token', json.data.token);
-      onAuth(deviceName);
+      onAuth();
     } catch {
       setError('Нет связи с сервером');
     } finally {
@@ -68,13 +69,9 @@ export default function PinScreen({ onAuth }: Props) {
 
         <div className="space-y-2">
           <label className="block text-sm text-gray-400">Устройство</label>
-          <input
-            type="text"
-            value={deviceName}
-            onChange={(e) => setDeviceName(e.target.value)}
-            placeholder="Ворота A"
-            className="w-full text-center text-xl bg-gray-800 border border-gray-700 rounded-xl px-4 py-4 focus:outline-none focus:border-blue-500"
-          />
+          <div className="w-full text-center text-xl font-mono bg-gray-800/50 border border-gray-700/50 rounded-xl px-4 py-4 text-gray-300">
+            {deviceId}
+          </div>
         </div>
 
         {error && (
