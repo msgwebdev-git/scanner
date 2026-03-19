@@ -271,14 +271,36 @@ function ValidResult({ ticket }: { ticket: Ticket }) {
   );
 }
 
+function formatCheckinTime(iso: string): string {
+  const date = new Date(iso);
+  const now = new Date();
+  const tz = 'Europe/Chisinau';
+
+  const time = date.toLocaleTimeString('ru-RU', {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: tz,
+  });
+
+  // Check if same day
+  const checkinDay = date.toLocaleDateString('ru-RU', { timeZone: tz });
+  const todayDay = now.toLocaleDateString('ru-RU', { timeZone: tz });
+
+  if (checkinDay === todayDay) {
+    return time; // "13:28"
+  }
+
+  // Different day — show date
+  const dayMonth = date.toLocaleDateString('ru-RU', {
+    day: 'numeric',
+    month: 'short',
+    timeZone: tz,
+  });
+  return `${time}, ${dayMonth}`; // "13:28, 18 мар."
+}
+
 function DuplicateResult({ ticket }: { ticket: Ticket }) {
-  const time = ticket.checkedInAt
-    ? new Date(ticket.checkedInAt).toLocaleTimeString('ru-RU', {
-        hour: '2-digit',
-        minute: '2-digit',
-        timeZone: 'Europe/Chisinau',
-      })
-    : '—';
+  const time = ticket.checkedInAt ? formatCheckinTime(ticket.checkedInAt) : '—';
 
   return (
     <>
@@ -290,8 +312,12 @@ function DuplicateResult({ ticket }: { ticket: Ticket }) {
         </svg>
       </div>
       <h1 className="text-4xl font-black mb-4 tracking-tight">УЖЕ ПРОШЁЛ</h1>
-      <p className="text-xl font-semibold text-white/90 text-center mb-3">
+      <p className="text-xl font-semibold text-white/90 text-center mb-1">
         {ticket.customerName}
+      </p>
+      <p className="text-base text-white/60 text-center mb-3">
+        {ticket.ticketName}
+        {ticket.optionName ? ` \u2022 ${ticket.optionName}` : ''}
       </p>
       <div className="bg-white/15 rounded-xl px-5 py-3 text-center">
         <p className="text-white/80 text-base">
