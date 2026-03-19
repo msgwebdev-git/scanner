@@ -27,10 +27,21 @@ export default function CameraScreen({ deviceId, onBack }: Props) {
     });
     scannerRef.current = scanner;
 
+    // Responsive qrbox — 70% of the smaller viewport dimension
+    const qrboxSize = Math.min(
+      Math.floor(window.innerWidth * 0.7),
+      Math.floor(window.innerHeight * 0.4),
+      300
+    );
+
     scanner
       .start(
         { facingMode: 'environment' },
-        { fps: 10, qrbox: { width: 250, height: 250 } },
+        {
+          fps: 10,
+          qrbox: { width: qrboxSize, height: qrboxSize },
+          aspectRatio: window.innerHeight / window.innerWidth,
+        },
         async (decodedText) => {
           if (isProcessingRef.current) return;
           isProcessingRef.current = true;

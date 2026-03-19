@@ -1,1 +1,26 @@
 @import "tailwindcss";
+
+/* html5-qrcode: make camera feed fill the viewport */
+#qr-reader {
+  width: 100% !important;
+  height: 100% !important;
+  border: none !important;
+}
+
+#qr-reader video {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+}
+
+/* Hide the built-in scan region border, we use the overlay */
+#qr-reader__scan_region {
+  min-height: 100% !important;
+}
+
+/* Hide any built-in text/buttons from the library */
+#qr-reader__dashboard,
+#qr-reader__status_span,
+#qr-reader__header_message {
+  display: none !important;
+}
