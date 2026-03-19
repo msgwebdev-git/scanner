@@ -25,17 +25,17 @@ export default function CameraScreen({ deviceId, onBack }: Props) {
   const facingModeRef = useRef(facingMode);
 
   const startCamera = (scanner: Html5Qrcode, facing: 'environment' | 'user') => {
-    const qrboxSize = Math.min(
-      Math.floor(window.innerWidth * 0.65),
-      Math.floor(window.innerHeight * 0.35),
-      280
-    );
+    // Dynamic qrbox — 80% of viewport, much easier to aim
+    const qrboxFunction = (viewfinderWidth: number, viewfinderHeight: number) => {
+      const size = Math.floor(Math.min(viewfinderWidth, viewfinderHeight) * 0.8);
+      return { width: size, height: size };
+    };
 
     return scanner.start(
       { facingMode: facing },
       {
         fps: 10,
-        qrbox: { width: qrboxSize, height: qrboxSize },
+        qrbox: qrboxFunction,
         aspectRatio: window.innerHeight / window.innerWidth,
         disableFlip: false,
       },
@@ -205,7 +205,7 @@ function Viewfinder() {
   return (
     <div className="absolute inset-0 z-[5] pointer-events-none flex items-center justify-center">
       {/* Dimmed corners */}
-      <div className="relative w-[70vw] max-w-[280px] aspect-square">
+      <div className="relative w-[80vmin] aspect-square">
         {/* Corner brackets */}
         <Corner position="top-left" />
         <Corner position="top-right" />
