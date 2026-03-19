@@ -19,29 +19,24 @@ export default function CameraScreen({ deviceId, onBack }: Props) {
 
   const [result, setResult] = useState<ScanResult | null>(null);
   const [scanCount, setScanCount] = useState(0);
+  const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
+  const facingModeRef = useRef(facingMode);
 
-  useEffect(() => {
-    const scanner = new Html5Qrcode('qr-reader', {
-      formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
-      verbose: false,
-    });
-    scannerRef.current = scanner;
-
+  const startCamera = (scanner: Html5Qrcode, facing: 'environment' | 'user') => {
     const qrboxSize = Math.min(
       Math.floor(window.innerWidth * 0.65),
       Math.floor(window.innerHeight * 0.35),
       280
     );
 
-    scanner
-      .start(
-        { facingMode: 'environment' },
-        {
-          fps: 10,
-          qrbox: { width: qrboxSize, height: qrboxSize },
-          aspectRatio: window.innerHeight / window.innerWidth,
-          disableFlip: false,
-        },
+    return scanner.start(
+      { facingMode: facing },
+      {
+        fps: 10,
+        qrbox: { width: qrboxSize, height: qrboxSize },
+        aspectRatio: window.innerHeight / window.innerWidth,
+        disableFlip: false,
+      },
         async (decodedText) => {
           if (isProcessingRef.current) return;
           isProcessingRef.current = true;
@@ -83,10 +78,19 @@ export default function CameraScreen({ deviceId, onBack }: Props) {
           }, RESULT_DURATION_MS);
         },
         () => {}
-      )
-      .catch((err: unknown) => {
-        console.error('Camera start failed:', err);
-      });
+      );
+  };
+
+  useEffect(() => {
+    const scanner = new Html5Qrcode('qr-reader', {
+      formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
+      verbose: false,
+    });
+    scannerRef.current = scanner;
+
+    startCamera(scanner, facingModeRef.current).catch((err: unknown) => {
+      console.error('Camera start failed:', err);
+    });
 
     navigator.wakeLock?.request('screen').then((s) => {
       wakeLockRef.current = s;
@@ -97,6 +101,23 @@ export default function CameraScreen({ deviceId, onBack }: Props) {
       wakeLockRef.current?.release().catch(() => {});
     };
   }, []);
+
+  const flipCamera = async () => {
+    const scanner = scannerRef.current;
+    if (!scanner || isProcessingRef.current) return;
+
+    const newMode = facingMode === 'environment' ? 'user' : 'environment';
+    try {
+      await scanner.stop();
+      await startCamera(scanner, newMode);
+      setFacingMode(newMode);
+      facingModeRef.current = newMode;
+    } catch (err) {
+      console.error('Camera flip failed:', err);
+      // Fallback: try to restart with original mode
+      startCamera(scanner, facingMode).catch(() => {});
+    }
+  };
 
   const dismissResult = () => {
     setResult(null);
@@ -122,11 +143,25 @@ export default function CameraScreen({ deviceId, onBack }: Props) {
             <path d="M15 18l-6-6 6-6" />
           </svg>
         </button>
-        {scanCount > 0 && (
-          <div className="bg-black/50 backdrop-blur-sm rounded-full px-3 py-1.5">
-            <span className="text-green-400 text-sm font-bold">{scanCount}</span>
-          </div>
-        )}
+        <div className="flex items-center gap-2">
+          {scanCount > 0 && (
+            <div className="bg-black/50 backdrop-blur-sm rounded-full px-3 py-1.5">
+              <span className="text-green-400 text-sm font-bold">{scanCount}</span>
+            </div>
+          )}
+          <button
+            onClick={flipCamera}
+            className="w-11 h-11 flex items-center justify-center bg-black/50 backdrop-blur-sm rounded-full"
+            title="Переключить камеру"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M11 19H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5" />
+              <path d="M13 5h7a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-5" />
+              <polyline points="16 3 19 6 16 9" />
+              <polyline points="8 15 5 18 8 21" />
+            </svg>
+          </button>
+        </div>
       </div>
 
       {/* Bottom hint */}
