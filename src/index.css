@@ -1,26 +1,68 @@
 @import "tailwindcss";
 
-/* html5-qrcode: make camera feed fill the viewport */
+/* ─── html5-qrcode: полноэкранная камера ─── */
+
 #qr-reader {
   width: 100% !important;
   height: 100% !important;
   border: none !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  background: #000 !important;
 }
 
 #qr-reader video {
   width: 100% !important;
   height: 100% !important;
   object-fit: cover !important;
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
 }
 
-/* Hide the built-in scan region border, we use the overlay */
+/* Прячем ВСЕ встроенные элементы библиотеки */
+#qr-reader__scan_region > img,
+#qr-reader__dashboard,
+#qr-reader__dashboard_section,
+#qr-reader__dashboard_section_csr,
+#qr-reader__dashboard_section_fsr,
+#qr-reader__status_span,
+#qr-reader__header_message,
+#qr-reader__camera_selection,
+#qr-reader br {
+  display: none !important;
+}
+
 #qr-reader__scan_region {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
   min-height: 100% !important;
 }
 
-/* Hide any built-in text/buttons from the library */
-#qr-reader__dashboard,
-#qr-reader__status_span,
-#qr-reader__header_message {
+/* Прячем шейдинг/рамку встроенного qrbox */
+#qr-shaded-region {
   display: none !important;
+}
+
+/* ─── Анимация сканирования ─── */
+
+@keyframes scan-line {
+  0%, 100% { top: 20%; }
+  50% { top: 75%; }
+}
+
+.scan-line-animate {
+  animation: scan-line 2.5s ease-in-out infinite;
+}
+
+@keyframes pulse-ring {
+  0% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(1.15); opacity: 0; }
+}
+
+.pulse-ring {
+  animation: pulse-ring 1.5s ease-out infinite;
 }

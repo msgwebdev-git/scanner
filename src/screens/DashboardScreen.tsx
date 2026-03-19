@@ -17,7 +17,6 @@ export default function DashboardScreen({ deviceId, onScan, onLogout }: Props) {
   const [checkedInCount, setCheckedInCount] = useState(0);
   const [pendingCount, setPendingCount] = useState(0);
   const [online, setOnline] = useState(false);
-  const [lastSync, setLastSync] = useState<string>('—');
 
   useEffect(() => {
     startSync();
@@ -32,17 +31,7 @@ export default function DashboardScreen({ deviceId, onScan, onLogout }: Props) {
         setTicketCount(tickets);
         setCheckedInCount(checkedIn);
         setPendingCount(pending.length);
-        const nowOnline = isOnline();
-        setOnline(nowOnline);
-        if (nowOnline) {
-          setLastSync(
-            new Date().toLocaleTimeString('ru-RU', {
-              hour: '2-digit',
-              minute: '2-digit',
-              timeZone: 'Europe/Chisinau',
-            })
-          );
-        }
+        setOnline(isOnline());
       } catch {
         // ignore
       }
@@ -54,58 +43,69 @@ export default function DashboardScreen({ deviceId, onScan, onLogout }: Props) {
   }, []);
 
   return (
-    <div className="flex-1 flex flex-col p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-bold truncate mr-4">{deviceId}</h1>
+    <div className="flex-1 flex flex-col">
+      {/* Header bar */}
+      <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800/50">
+        <div className="flex items-center gap-3">
+          <div className={`w-2.5 h-2.5 rounded-full ${online ? 'bg-green-500' : 'bg-red-500'}`} />
+          <span className="text-sm font-mono text-gray-400">{deviceId}</span>
+        </div>
         <button
           onClick={onLogout}
-          className="text-sm text-gray-400 hover:text-white shrink-0 py-2 px-3 rounded-lg bg-gray-800"
+          className="text-xs text-gray-600 hover:text-gray-400 transition-colors"
         >
           Выйти
         </button>
       </div>
 
-      {/* Online indicator */}
-      <div className="flex items-center gap-2 mb-6">
-        <span
-          className={`w-3 h-3 rounded-full ${online ? 'bg-green-500' : 'bg-red-500'}`}
-        />
-        <span className="text-sm text-gray-300">
-          {online ? 'Онлайн' : 'Офлайн'}
-        </span>
-      </div>
-
-      {/* Stats grid */}
-      <div className="grid grid-cols-2 gap-3 mb-8">
-        <div className="bg-gray-900 rounded-xl p-4">
-          <div className="text-2xl font-bold">{ticketCount}</div>
-          <div className="text-sm text-gray-400 mt-1">Билетов в базе</div>
-        </div>
-        <div className="bg-gray-900 rounded-xl p-4">
-          <div className="text-2xl font-bold">{checkedInCount}</div>
-          <div className="text-sm text-gray-400 mt-1">Check-in</div>
-        </div>
-        <div className="bg-gray-900 rounded-xl p-4">
-          <div className="text-2xl font-bold">{pendingCount}</div>
-          <div className="text-sm text-gray-400 mt-1">Ожидает sync</div>
-        </div>
-        <div className="bg-gray-900 rounded-xl p-4">
-          <div className="text-2xl font-bold">{lastSync}</div>
-          <div className="text-sm text-gray-400 mt-1">Последний sync</div>
+      {/* Stats */}
+      <div className="px-5 pt-6 pb-4">
+        <div className="grid grid-cols-3 gap-3">
+          <StatCard value={ticketCount} label="В базе" />
+          <StatCard value={checkedInCount} label="Прошли" accent />
+          <StatCard
+            value={pendingCount}
+            label="Ожидает"
+            warning={pendingCount > 0}
+          />
         </div>
       </div>
 
-      {/* Spacer */}
-      <div className="flex-1" />
+      {/* Main area — scan button takes most of the screen */}
+      <div className="flex-1 flex flex-col items-center justify-center px-5 pb-8">
+        <button
+          onClick={onScan}
+          className="w-full max-w-sm aspect-square rounded-full bg-green-500 hover:bg-green-600 active:bg-green-700 active:scale-95 transition-all flex flex-col items-center justify-center shadow-[0_0_60px_rgba(34,197,94,0.3)]"
+        >
+          {/* Scan icon */}
+          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 7V5a2 2 0 0 1 2-2h2" />
+            <path d="M17 3h2a2 2 0 0 1 2 2v2" />
+            <path d="M21 17v2a2 2 0 0 1-2 2h-2" />
+            <path d="M7 21H5a2 2 0 0 1-2-2v-2" />
+            <line x1="7" y1="12" x2="17" y2="12" />
+          </svg>
+          <span className="text-white text-xl font-bold mt-3">СКАНИРОВАТЬ</span>
+        </button>
+      </div>
+    </div>
+  );
+}
 
-      {/* Scan button */}
-      <button
-        onClick={onScan}
-        className="w-full py-6 bg-green-600 hover:bg-green-700 active:bg-green-800 rounded-2xl text-2xl font-bold tracking-wide transition-colors"
-      >
-        СКАНИРОВАТЬ
-      </button>
+function StatCard({ value, label, accent, warning }: {
+  value: number;
+  label: string;
+  accent?: boolean;
+  warning?: boolean;
+}) {
+  return (
+    <div className="bg-gray-900/80 rounded-xl px-3 py-3 text-center">
+      <div className={`text-2xl font-bold ${
+        warning ? 'text-amber-400' : accent ? 'text-green-400' : 'text-white'
+      }`}>
+        {value.toLocaleString('ru-RU')}
+      </div>
+      <div className="text-[11px] text-gray-500 mt-0.5 uppercase tracking-wider">{label}</div>
     </div>
   );
 }
