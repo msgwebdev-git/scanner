@@ -9,10 +9,11 @@ import {
 interface Props {
   deviceId: string;
   onScan: () => void;
+  onVolunteer: () => void;
   onLogout: () => void;
 }
 
-export default function DashboardScreen({ deviceId, onScan, onLogout }: Props) {
+export default function DashboardScreen({ deviceId, onScan, onVolunteer, onLogout }: Props) {
   const [ticketCount, setTicketCount] = useState(0);
   const [checkedInCount, setCheckedInCount] = useState(0);
   const [pendingCount, setPendingCount] = useState(0);
@@ -86,6 +87,13 @@ export default function DashboardScreen({ deviceId, onScan, onLogout }: Props) {
             <line x1="7" y1="12" x2="17" y2="12" />
           </svg>
           <span className="text-white text-xl font-bold mt-3">СКАНИРОВАТЬ</span>
+        </button>
+
+        <button
+          onClick={onVolunteer}
+          className="mt-4 w-full max-w-sm py-4 bg-gray-800 hover:bg-gray-700 active:bg-gray-600 rounded-2xl text-base font-medium text-gray-300 transition-colors"
+        >
+          Монитор волонтёра
         </button>
       </div>
     </div>

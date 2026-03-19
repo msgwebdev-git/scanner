@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import { getTicket, localCheckIn, type Ticket } from '../lib/scanner-db';
+import { getBraceletColor } from '../lib/bracelet-colors';
+import { scannerFetch } from '../lib/api';
 import type { ScanResult } from '../App';
 
 interface Props {
@@ -68,6 +70,26 @@ export default function CameraScreen({ deviceId, onBack }: Props) {
           } else {
             navigator.vibrate?.([200, 100, 200, 100, 200]);
           }
+
+          // Push to live feed for volunteer mirror (fire-and-forget)
+          const ticket = scanResult.ticket;
+          const bracelet = ticket ? getBraceletColor(ticket.ticketName) : null;
+          scannerFetch('/api/scan/live', {
+            method: 'POST',
+            body: JSON.stringify({
+              deviceId: deviceIdRef.current,
+              type: scanResult.type,
+              customerName: ticket?.customerName,
+              ticketName: ticket?.ticketName,
+              optionName: ticket?.optionName,
+              braceletColor: bracelet?.hex,
+              braceletLabel: bracelet?.label,
+              isInvitation: ticket?.isInvitation,
+              checkedInAt: ticket?.checkedInAt,
+              checkedInBy: ticket?.checkedInBy,
+              scannedAt: new Date().toISOString(),
+            }),
+          }).catch(() => {}); // ignore errors — live feed is best-effort
 
           setResult(scanResult);
 
@@ -247,9 +269,11 @@ function ResultOverlay({ result, onDismiss }: { result: ScanResult; onDismiss: (
 }
 
 function ValidResult({ ticket }: { ticket: Ticket }) {
+  const bracelet = getBraceletColor(ticket.ticketName);
+
   return (
     <>
-      <div className="w-24 h-24 rounded-full bg-white/20 flex items-center justify-center mb-6">
+      <div className="w-24 h-24 rounded-full bg-white/20 flex items-center justify-center mb-5">
         <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
           <polyline points="20 6 9 17 4 12" />
         </svg>
@@ -258,12 +282,22 @@ function ValidResult({ ticket }: { ticket: Ticket }) {
       <p className="text-2xl font-semibold text-white/90 text-center mb-1">
         {ticket.customerName}
       </p>
-      <p className="text-lg text-white/70 text-center">
+      <p className="text-lg text-white/70 text-center mb-4">
         {ticket.ticketName}
         {ticket.optionName ? ` \u2022 ${ticket.optionName}` : ''}
       </p>
+
+      {/* Bracelet color — big and clear for volunteer */}
+      <div
+        className="rounded-2xl px-6 py-3 flex items-center gap-3"
+        style={{ backgroundColor: 'rgba(0,0,0,0.25)' }}
+      >
+        <div className="w-8 h-8 rounded-full border-2 border-white/40" style={{ backgroundColor: bracelet.hex }} />
+        <span className="text-lg font-bold uppercase tracking-wider">{bracelet.label} браслет</span>
+      </div>
+
       {ticket.isInvitation && (
-        <div className="mt-5 bg-white/20 rounded-full px-5 py-2">
+        <div className="mt-4 bg-white/20 rounded-full px-5 py-2">
           <span className="text-sm font-bold uppercase tracking-widest">Приглашение</span>
         </div>
       )}

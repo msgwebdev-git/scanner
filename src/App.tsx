@@ -2,9 +2,10 @@ import { useState, useEffect, useCallback } from 'react';
 import PinScreen from './screens/PinScreen';
 import DashboardScreen from './screens/DashboardScreen';
 import CameraScreen from './screens/CameraScreen';
+import VolunteerScreen from './screens/VolunteerScreen';
 import { getDeviceId } from './lib/device-id';
 
-type Screen = 'pin' | 'dashboard' | 'camera';
+type Screen = 'pin' | 'dashboard' | 'camera' | 'volunteer';
 
 export type ScanResultType = 'valid' | 'duplicate' | 'invalid';
 
@@ -37,6 +38,7 @@ export default function App() {
         <DashboardScreen
           deviceId={deviceId}
           onScan={() => setScreen('camera')}
+          onVolunteer={() => setScreen('volunteer')}
           onLogout={() => {
             localStorage.removeItem('scanner_token');
             setScreen('pin');
@@ -48,6 +50,9 @@ export default function App() {
           deviceId={deviceId}
           onBack={() => setScreen('dashboard')}
         />
+      )}
+      {screen === 'volunteer' && (
+        <VolunteerScreen onBack={() => setScreen('dashboard')} />
       )}
     </div>
   );
