@@ -25,19 +25,12 @@ export default function CameraScreen({ deviceId, onBack }: Props) {
   const facingModeRef = useRef(facingMode);
 
   const startCamera = (scanner: Html5Qrcode, facing: 'environment' | 'user') => {
-    // Dynamic qrbox — 80% of viewport, much easier to aim
-    const qrboxFunction = (viewfinderWidth: number, viewfinderHeight: number) => {
-      const size = Math.floor(Math.min(viewfinderWidth, viewfinderHeight) * 0.8);
-      return { width: size, height: size };
-    };
-
     return scanner.start(
       { facingMode: facing },
       {
         fps: 10,
-        qrbox: qrboxFunction,
+        // No qrbox — scan the ENTIRE frame. One QR at a time at the gate, no need to restrict.
         aspectRatio: window.innerHeight / window.innerWidth,
-        disableFlip: false,
       },
         async (decodedText) => {
           if (isProcessingRef.current) return;
