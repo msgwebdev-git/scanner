@@ -28,8 +28,8 @@ export default function CameraScreen({ deviceId, onBack }: Props) {
     return scanner.start(
       { facingMode: facing },
       {
-        fps: 10,
-        // No qrbox — scan the ENTIRE frame. One QR at a time at the gate, no need to restrict.
+        fps: 15,
+        // No qrbox — scan the ENTIRE frame. Higher fps = more chances to catch glare-free frame.
         aspectRatio: window.innerHeight / window.innerWidth,
       },
         async (decodedText) => {
