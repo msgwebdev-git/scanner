@@ -204,30 +204,36 @@ function WaitingState() {
 }
 
 function ValidDisplay({ event }: { event: LiveEvent }) {
-  // Entire screen = bracelet color. Maximum visibility in sunlight.
-  const bg = event.braceletColor || '#22C55E';
-
   return (
-    <div
-      className="h-full flex flex-col items-center justify-center p-6 text-center"
-      style={{ backgroundColor: bg }}
-    >
-      {/* Bracelet name — huge, the only thing that matters */}
-      <h1 className="text-6xl sm:text-8xl font-black uppercase tracking-wider mb-6 text-white drop-shadow-lg">
-        {event.braceletLabel || 'ПРОХОДИ'}
-      </h1>
+    <div className="h-full bg-green-500 flex flex-col text-center">
+      {/* Top — PASS signal */}
+      <div className="flex-1 flex items-end justify-center pb-4 px-6">
+        <h1 className="text-5xl sm:text-6xl font-black text-white drop-shadow-lg">ПРОХОДИ</h1>
+      </div>
 
-      {/* Ticket info on dark overlay strip */}
-      <div className="bg-black/25 backdrop-blur-sm rounded-2xl px-6 py-4 max-w-sm w-full">
-        <p className="text-xl font-bold text-white mb-1">{event.customerName}</p>
-        <p className="text-base text-white/80">
+      {/* Middle — bracelet color band (looks like a wristband) */}
+      {event.braceletColor && (
+        <div
+          className="w-full py-6 flex items-center justify-center shadow-lg"
+          style={{ backgroundColor: event.braceletColor }}
+        >
+          <span className="text-4xl sm:text-5xl font-black text-white uppercase tracking-widest drop-shadow-md">
+            {event.braceletLabel}
+          </span>
+        </div>
+      )}
+
+      {/* Bottom — ticket info */}
+      <div className="flex-1 flex flex-col items-center justify-start pt-4 px-6">
+        <p className="text-xl font-bold text-white">{event.customerName}</p>
+        <p className="text-base text-white/70 mt-1">
           {event.ticketName}
           {event.optionName ? ` \u2022 ${event.optionName}` : ''}
         </p>
         {event.isInvitation && (
-          <p className="text-sm font-bold uppercase tracking-widest text-white/90 mt-2">
-            Приглашение
-          </p>
+          <div className="mt-3 bg-white/20 rounded-full px-5 py-1.5">
+            <span className="text-sm font-bold uppercase tracking-widest">Приглашение</span>
+          </div>
         )}
       </div>
     </div>
