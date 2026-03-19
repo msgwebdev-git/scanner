@@ -27,6 +27,7 @@ export default function VolunteerScreen({ onBack }: Props) {
   const [event, setEvent] = useState<LiveEvent | null>(null);
   const [sseStatus, setSseStatus] = useState<'connecting' | 'open' | 'error'>('connecting');
   const esRef = useRef<EventSource | null>(null);
+  const clearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [connectError, setConnectError] = useState('');
   const errorCountRef = useRef(0);
@@ -59,6 +60,10 @@ export default function VolunteerScreen({ onBack }: Props) {
       try {
         const data = JSON.parse(e.data) as LiveEvent;
         setEvent(data);
+
+        // Auto-clear after 8 seconds — back to "waiting"
+        if (clearTimerRef.current) clearTimeout(clearTimerRef.current);
+        clearTimerRef.current = setTimeout(() => setEvent(null), 8000);
       } catch { /* ignore parse errors */ }
     };
 
@@ -86,6 +91,7 @@ export default function VolunteerScreen({ onBack }: Props) {
   useEffect(() => {
     return () => {
       esRef.current?.close();
+      if (clearTimerRef.current) clearTimeout(clearTimerRef.current);
     };
   }, []);
 
@@ -198,35 +204,32 @@ function WaitingState() {
 }
 
 function ValidDisplay({ event }: { event: LiveEvent }) {
+  // Entire screen = bracelet color. Maximum visibility in sunlight.
+  const bg = event.braceletColor || '#22C55E';
+
   return (
-    <div className="h-full bg-green-500 flex flex-col items-center justify-center p-6 text-center">
-      {/* Bracelet — biggest element, the main info for volunteer */}
-      {event.braceletColor && (
-        <div
-          className="w-36 h-36 rounded-full border-[6px] border-white/30 mb-5 shadow-2xl"
-          style={{ backgroundColor: event.braceletColor }}
-        />
-      )}
+    <div
+      className="h-full flex flex-col items-center justify-center p-6 text-center"
+      style={{ backgroundColor: bg }}
+    >
+      {/* Bracelet name — huge, the only thing that matters */}
+      <h1 className="text-6xl sm:text-8xl font-black uppercase tracking-wider mb-6 text-white drop-shadow-lg">
+        {event.braceletLabel || 'ПРОХОДИ'}
+      </h1>
 
-      {event.braceletLabel && (
-        <p className="text-3xl font-black uppercase tracking-widest mb-2 text-white">
-          {event.braceletLabel}
-        </p>
-      )}
-
-      <div className="bg-white/15 rounded-2xl px-6 py-4 mt-2 max-w-sm w-full">
+      {/* Ticket info on dark overlay strip */}
+      <div className="bg-black/25 backdrop-blur-sm rounded-2xl px-6 py-4 max-w-sm w-full">
         <p className="text-xl font-bold text-white mb-1">{event.customerName}</p>
-        <p className="text-base text-white/70">
+        <p className="text-base text-white/80">
           {event.ticketName}
           {event.optionName ? ` \u2022 ${event.optionName}` : ''}
         </p>
+        {event.isInvitation && (
+          <p className="text-sm font-bold uppercase tracking-widest text-white/90 mt-2">
+            Приглашение
+          </p>
+        )}
       </div>
-
-      {event.isInvitation && (
-        <div className="mt-4 bg-white/20 rounded-full px-5 py-2">
-          <span className="text-sm font-bold uppercase tracking-widest">Приглашение</span>
-        </div>
-      )}
     </div>
   );
 }
@@ -242,29 +245,33 @@ function DuplicateDisplay({ event }: { event: LiveEvent }) {
 
   return (
     <div className="h-full bg-amber-500 flex flex-col items-center justify-center p-6 text-center">
-      <div className="w-28 h-28 rounded-full bg-white/20 flex items-center justify-center mb-6">
-        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <line x1="12" y1="9" x2="12" y2="13" />
-          <line x1="12" y1="17" x2="12.01" y2="17" />
-        </svg>
+      <h1 className="text-6xl sm:text-8xl font-black mb-4 tracking-tight text-white drop-shadow-lg">СТОП</h1>
+
+      <div className="bg-black/25 backdrop-blur-sm rounded-2xl px-6 py-4 max-w-sm w-full">
+        <p className="text-xl font-bold text-white mb-1">{event.customerName}</p>
+        <p className="text-base text-white/80 mb-2">
+          {event.ticketName}
+          {event.optionName ? ` \u2022 ${event.optionName}` : ''}
+        </p>
+
+        {event.braceletColor && (
+          <div className="flex items-center justify-center gap-3 mt-2 pt-2 border-t border-white/20">
+            <div className="w-5 h-5 rounded-full border-2 border-white/50" style={{ backgroundColor: event.braceletColor }} />
+            <span className="text-sm font-bold text-white/80 uppercase">{event.braceletLabel}</span>
+          </div>
+        )}
       </div>
-      <h1 className="text-5xl font-black mb-3 tracking-tight">СТОП</h1>
-      <p className="text-2xl text-white/80 mb-1">{event.customerName}</p>
-      <p className="text-lg text-white/60">Уже прошёл в {time}</p>
+
+      <p className="text-lg text-white/70 mt-4">Уже прошёл в {time}</p>
     </div>
   );
 }
 
 function InvalidDisplay() {
   return (
-    <div className="h-full bg-red-500 flex flex-col items-center justify-center p-6 text-center">
-      <div className="w-28 h-28 rounded-full bg-white/20 flex items-center justify-center mb-6">
-        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-          <line x1="18" y1="6" x2="6" y2="18" />
-          <line x1="6" y1="6" x2="18" y2="18" />
-        </svg>
-      </div>
-      <h1 className="text-5xl font-black tracking-tight">СТОП</h1>
+    <div className="h-full bg-red-600 flex flex-col items-center justify-center p-6 text-center">
+      <h1 className="text-6xl sm:text-8xl font-black tracking-tight text-white drop-shadow-lg">СТОП</h1>
+      <p className="text-xl text-white/70 mt-4">Билет недействителен</p>
     </div>
   );
 }
