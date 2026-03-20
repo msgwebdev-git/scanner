@@ -3,6 +3,7 @@ import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import { getTicket, localCheckIn, type Ticket } from '../lib/scanner-db';
 import { getBraceletColor } from '../lib/bracelet-colors';
 import { scannerFetch } from '../lib/api';
+import { playScanSound, unlockAudio } from '../lib/sounds';
 import type { ScanResult } from '../App';
 
 interface Props {
@@ -55,7 +56,7 @@ export default function CameraScreen({ deviceId, onBack }: Props) {
             scanResult = { type: 'invalid' };
           }
 
-          // Vibrate
+          // Feedback: vibrate + sound
           if (scanResult.type === 'valid') {
             navigator.vibrate?.(200);
           } else if (scanResult.type === 'duplicate') {
@@ -63,6 +64,7 @@ export default function CameraScreen({ deviceId, onBack }: Props) {
           } else {
             navigator.vibrate?.([200, 100, 200, 100, 200]);
           }
+          playScanSound(scanResult.type);
 
           // Push to live feed for volunteer mirror (fire-and-forget)
           const ticket = scanResult.ticket;
@@ -102,6 +104,9 @@ export default function CameraScreen({ deviceId, onBack }: Props) {
       verbose: false,
     });
     scannerRef.current = scanner;
+
+    // Unlock AudioContext — this runs inside a user-gesture chain (button → screen mount)
+    unlockAudio();
 
     startCamera(scanner, facingModeRef.current).catch((err: unknown) => {
       console.error('Camera start failed:', err);
